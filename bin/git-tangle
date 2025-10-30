@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+LIBEXEC_DIR="$(dirname "$(dirname "$0")")/libexec/tangle"
+
+usage() {
+  cat <<'EOF'
+Git Tangle 🧶 — Untangle your workflow.
+
+Usage:
+  git tangle init
+  git tangle config get <key>
+  git tangle config set <key> <value>
+
+  git tangle feature start <name> [--from <branch>]
+  git tangle feature finish <name>
+
+  git tangle bugfix start <name> [--from <branch>]
+  git tangle bugfix finish <name>
+
+  git tangle support start <name> [--from <branch>]
+  git tangle support finish <name>
+
+  git tangle release start <version> [--from <branch>]
+  git tangle release finish <version>
+
+Notes:
+  - Tag prefix is empty by default. Set with: git tangle config set tangle.tagPrefix v
+  - Merge style defaults to 'no-ff'. Set 'ff' if preferred.
+EOF
+}
+
+ensure_repo() {
+  git rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
+    echo "[tangle] ERROR: not inside a Git repository." >&2
+    exit 1
+  }
+}
+
+cmd="${1:-}"
+if [[ -z "${cmd}" ]]; then usage; exit 1; fi
+
+case "$cmd" in
+  init)
+    ensure_repo
+    # initialize defaults
+    # Note: tagPrefix intentionally left empty by default
+    git config --unset tangle.tagPrefix >/dev/null 2>&1 || true
+    git config tangle.mergeStyle no-ff
+    git config tangle.autoPush true
+    git config tangle.rebaseOnFinish false
+    git config tangle.prefix.feature feature
+    git config tangle.prefix.bugfix bugfix
+    git config tangle.prefix.support support
+    git config tangle.prefix.release release
+    # detect default branch
+    def="$(bash "$LIBEXEC_DIR/utils.sh" tangle::default_branch 2>/dev/null || true)"
+    if [[ -n "${def:-}" ]]; then
+      git config tangle.defaultBranch "$def"
+      echo "[tangle] Default branch set to '$def'."
+    fi
+    echo "[tangle] Initialized repository configuration."
+    ;;
+  config)
+    ensure_repo
+    sub="${2:-}"
+    case "$sub" in
+      get)
+        key="${3:-}"
+        if [[ -z "$key" ]]; then echo "[tangle] ERROR: key required."; exit 1; fi
+        git config --get "$key" || true
+        ;;
+      set)
+        key="${3:-}"; val="${4:-}"
+        if [[ -z "$key" || -z "$val" ]]; then echo "[tangle] ERROR: key and value required."; exit 1; fi
+        git config "$key" "$val"
+        ;;
+      *)
+        usage; exit 1;;
+    esac
+    ;;
+  feature|bugfix|support|release)
+    ensure_repo
+    sub="${2:-}"
+    if [[ -z "$sub" ]]; then usage; exit 1; fi
+    shift
+    exec "$LIBEXEC_DIR/${cmd}.sh" "$@"
+    ;;
+  -h|--help|help)
+    usage
+    ;;
+  *)
+    usage; exit 1;;
+esac

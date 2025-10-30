@@ -1,0 +1,12 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build / Dist
+dist/
+*.tar.gz
+*.zip
