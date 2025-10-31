@@ -1,0 +1,36 @@
+name: tangle-tests
+on:
+  push:
+  pull_request:
+
+jobs:
+  bats:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Make executables
+        run: chmod +x bin/git-tangle libexec/tangle/*.sh scripts/*.sh || true
+
+      - name: Add bin to PATH
+        run: echo "$PWD/bin" >> $GITHUB_PATH
+
+      - name: Install bats (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats
+
+      - name: Install bats (macOS)
+        if: runner.os == 'macOS'
+        run: brew install bats-core
+
+      - name: Run tests
+        env:
+          CI: "true"
+        run: |
+          bash scripts/ci-run-tests.sh
