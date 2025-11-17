@@ -64,6 +64,7 @@ jobs:
 
             def install
               bin.install "bin/git-tangle"
+              (HOMEBREW_PREFIX/"libexec/tangle").install Dir["libexec/tangle/*"]
             end
           end
           RUBY
