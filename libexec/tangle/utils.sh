@@ -32,7 +32,7 @@ tangle::default_branch() {
 
   local cur
   cur="$(git symbolic-ref -q --short HEAD 2>/dev/null || true)"
-  if [[ -n "$cur" ]]; then
+  if [[ -n "$cur" ]] && git show-ref --verify --quiet "refs/heads/$cur"; then
     echo "$cur"
     return
   fi
