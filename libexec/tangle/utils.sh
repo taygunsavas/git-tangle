@@ -8,14 +8,36 @@ tangle::bool() {
 }
 
 tangle::default_branch() {
-  local cfg; cfg="$(tangle::config_get tangle.defaultBranch)"
-  if [[ -n "$cfg" ]]; then echo "$cfg"; return; fi
-  local ref; ref="$(git symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null || true)"
-  if [[ -n "$ref" ]]; then echo "${ref#origin/}"; return; fi
+  local cfg
+  cfg="$(tangle::config_get tangle.defaultBranch)"
+  if [[ -n "$cfg" ]]; then
+    echo "$cfg"
+    return
+  fi
+
+  local ref
+  ref="$(git symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null || true)"
+  if [[ -n "$ref" ]]; then
+    echo "${ref#origin/}"
+    return
+  fi
+
+  local c
   for c in main master trunk; do
-    if git show-ref --verify --quiet "refs/heads/$c"; then echo "$c"; return; fi
+    if git show-ref --verify --quiet "refs/heads/$c"; then
+      echo "$c"
+      return
+    fi
   done
-  git rev-parse --abbrev-ref HEAD
+
+  local cur
+  cur="$(git symbolic-ref -q --short HEAD 2>/dev/null || true)"
+  if [[ -n "$cur" ]]; then
+    echo "$cur"
+    return
+  fi
+
+  echo "main"
 }
 
 tangle::prefix() { local v; v="$(tangle::config_get "$1")"; [[ -n "$v" ]] && echo "$v" || echo "$2"; }
