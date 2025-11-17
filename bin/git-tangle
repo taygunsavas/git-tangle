@@ -34,7 +34,8 @@ ensure_repo() {
 }
 
 detect_default_branch() {
-  bash "$LIBEXEC_DIR/utils.sh" tangle::default_branch 2>/dev/null || true
+  . "$LIBEXEC_DIR/utils.sh"
+  tangle::default_branch
 }
 
 prompt() {
@@ -83,13 +84,31 @@ case "$cmd" in
     git config tangle.prefix.release "$release_pref"
     echo "[tangle] Initialized repository configuration."
     ;;
-  config)
+    config)
     ensure_repo
     sub="${2:-}"
     case "$sub" in
-      get) key="${3:-}"; [[ -z "$key" ]] && {{ echo "[tangle] ERROR: key required."; exit 1; }}; git config --get "$key" || true ;;
-      set) key="${3:-}"; val="${4:-}"; [[ -z "$key" || -z "$val" ]] && {{ echo "[tangle] ERROR: key and value required."; exit 1; }}; git config "$key" "$val" ;;
-      *) usage; exit 1;;
+      get)
+        key="${3:-}"
+        if [[ -z "$key" ]]; then
+          echo "[tangle] ERROR: key required for 'config get'." >&2
+          exit 1
+        fi
+        git config --get "$key" || true
+        ;;
+      set)
+        key="${3:-}"
+        val="${4:-}"
+        if [[ -z "$key" || -z "$val" ]]; then
+          echo "[tangle] ERROR: key and value required for 'config set'." >&2
+          exit 1
+        fi
+        git config "$key" "$val"
+        ;;
+      *)
+        usage
+        exit 1
+        ;;
     esac
     ;;
   feature|bugfix|support|release)
