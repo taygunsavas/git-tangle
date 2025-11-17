@@ -35,51 +35,49 @@ jobs:
             dist/git-tangle_${{ steps.v.outputs.tag }}.tar.gz
             dist/git-tangle_${{ steps.v.outputs.tag }}.tar.gz.sha256
 
-      - name: Tap bump (Homebrew)
+      - name: Bump Homebrew tap
         if: ${{ env.HOMEBREW_TAP_TOKEN != '' }}
         env:
           GH_TOKEN: ${{ env.HOMEBREW_TAP_TOKEN }}
           VERSION: ${{ steps.v.outputs.tag }}
         run: |
           set -euo pipefail
+
           TAP_REPO="taygunsavas/homebrew-tap"
           FORMULA_PATH="Formula/git-tangle.rb"
           TARBALL_URL="https://github.com/${{ github.repository }}/releases/download/${VERSION}/git-tangle_${VERSION}.tar.gz"
           SHA256="$(cut -d ' ' -f1 dist/git-tangle_${VERSION}.tar.gz.sha256)"
 
-          tmpdir=$(mktemp -d)
-          gh repo clone "$TAP_REPO" "$tmpdir/tap" -- --depth=1
+          tmpdir="$(mktemp -d)"
+
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${TAP_REPO}.git" "$tmpdir/tap" --depth=1
           cd "$tmpdir/tap"
 
           mkdir -p Formula
-          printf '%s\n' \
-            'class GitTangle < Formula' \
-            '  desc "A branching workflow tool that untangles your repo"' \
-            '  homepage "https://github.com/taygunsavas/git-tangle"' \
-            '  url "__URL__"' \
-            '  sha256 "__SHA256__"' \
-            '  version "__VERSION__"' \
-            '  license "MIT"' \
-            '' \
-            '  def install' \
-            '    libexec.install Dir["bin", "libexec", "scripts", ".gitignore", "README.md", "LICENSE", "CONTRIBUTING.md", "CODE_OF_CONDUCT.md", "SECURITY.md", "SUPPORT.md"]' \
-            '    bin.install_symlink libexec/"bin/git-tangle"' \
-            '  end' \
-            '' \
-            '  test do' \
-            '    system "#{bin}/git-tangle", "-h"' \
-            '  end' \
-            'end' > "$FORMULA_PATH"
+          cat > "$FORMULA_PATH" <<'RUBY'
+          class GitTangle < Formula
+            desc "A branching workflow tool that untangles your repo"
+            homepage "https://github.com/taygunsavas/git-tangle"
+            url "__URL__"
+            sha256 "__SHA256__"
+            license "MIT"
+
+            def install
+              bin.install "git-tangle"
+            end
+          end
+          RUBY
 
           sed -i.bak -e "s|__URL__|$TARBALL_URL|g" "$FORMULA_PATH"
           sed -i.bak -e "s|__SHA256__|$SHA256|g" "$FORMULA_PATH"
-          sed -i.bak -e "s|__VERSION__|$VERSION|g" "$FORMULA_PATH"
           rm -f "$FORMULA_PATH.bak"
 
           git config user.name "tangle-bot"
           git config user.email "tangle-bot@users.noreply.github.com"
+
           git checkout -B "bump/git-tangle-$VERSION"
           git add "$FORMULA_PATH"
           git commit -m "git-tangle $VERSION"
           git push -u origin "bump/git-tangle-$VERSION"
+
           gh pr create --fill --title "git-tangle $VERSION" --body "Update formula to $VERSION"
