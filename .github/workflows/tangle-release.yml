@@ -63,7 +63,7 @@ jobs:
             license "MIT"
 
             def install
-              bin.install "git-tangle"
+              bin.install "bin/git-tangle"
             end
           end
           RUBY
