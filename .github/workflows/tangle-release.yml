@@ -80,4 +80,8 @@ jobs:
           git commit -m "git-tangle $VERSION"
           git push -u origin "bump/git-tangle-$VERSION"
 
-          gh pr create --fill --title "git-tangle $VERSION" --body "Update formula to $VERSION"
+          gh pr create \
+            --title "git-tangle $VERSION" \
+            --body "Update formula to $VERSION" \
+            --head "taygunsavas:bump/git-tangle-$VERSION" \
+            --base main 
