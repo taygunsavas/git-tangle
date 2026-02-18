@@ -19,6 +19,11 @@ jobs:
       - name: Make executables
         run: chmod +x bin/git-tangle libexec/tangle/*.sh scripts/*.sh || true
 
+      - name: Install mingw-w64
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mingw-w64
+
       - name: Derive version from tag
         id: v
         run: |
@@ -26,6 +31,8 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Package
+        env:
+          REQUIRE_WINDOWS_SHIM_EXE: "true"
         run: scripts/package.sh "${{ steps.v.outputs.tag }}"
 
       - name: Create Release

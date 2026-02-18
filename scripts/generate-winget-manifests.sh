@@ -39,7 +39,7 @@ PackageVersion: ${VERSION}
 InstallerType: zip
 NestedInstallerType: portable
 NestedInstallerFiles:
-  - RelativeFilePath: git-tangle.cmd
+  - RelativeFilePath: git-tangle.exe
     PortableCommandAlias: git-tangle
 Dependencies:
   PackageDependencies:

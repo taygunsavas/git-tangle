@@ -3,6 +3,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIST="$ROOT/dist"
 VER="${1:-}"
+SHIM_C="$ROOT/scripts/windows/git-tangle-shim.c"
 
 [[ -z "$VER" ]] && { echo "usage: package.sh <version>"; exit 1; }
 
@@ -18,10 +19,33 @@ tar -czf "$DIST/$TARBALL"   --exclude-vcs --exclude='.github' --exclude='dist'  
 rm -rf "$WIN_STAGE"
 mkdir -p "$WIN_STAGE/bin" "$WIN_STAGE/libexec/tangle"
 cp "$ROOT/bin/git-tangle" "$WIN_STAGE/bin/git-tangle"
-cp "$ROOT/bin/git-tangle.cmd" "$WIN_STAGE/git-tangle.cmd"
 cp "$ROOT/libexec/tangle/"*.sh "$WIN_STAGE/libexec/tangle/"
 cp "$ROOT/LICENSE" "$WIN_STAGE/LICENSE"
 cp "$ROOT/README.md" "$WIN_STAGE/README.md"
+cp "$ROOT/bin/git-tangle.cmd" "$WIN_STAGE/git-tangle.cmd"
+
+build_windows_exe_shim() {
+  local out="$1"
+  if [[ -f "$SHIM_C" ]] && command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then
+    x86_64-w64-mingw32-gcc -Os -s -municode -o "$out" "$SHIM_C"
+    return 0
+  fi
+
+  if [[ -f "$SHIM_C" ]] && command -v gcc >/dev/null 2>&1 && [[ "${OS:-}" == "Windows_NT" ]]; then
+    gcc -Os -s -municode -o "$out" "$SHIM_C" || true
+    [[ -f "$out" ]] && return 0
+  fi
+
+  return 1
+}
+
+if ! build_windows_exe_shim "$WIN_STAGE/git-tangle.exe"; then
+  if [[ "${REQUIRE_WINDOWS_SHIM_EXE:-false}" == "true" ]]; then
+    echo "[tangle] ERROR: Could not build required git-tangle.exe shim." >&2
+    exit 1
+  fi
+  echo "[tangle] WARNING: Could not build git-tangle.exe shim; packaged git-tangle.cmd only." >&2
+fi
 
 if command -v zip >/dev/null 2>&1; then
   ( cd "$WIN_STAGE" && zip -qr "$DIST/$WINZIP" . )
