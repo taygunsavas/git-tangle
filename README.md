@@ -16,7 +16,7 @@ Create short‑lived branches, finish them cleanly, and tag releases with a simp
 
 ## Install
 
-Global package managers will be added. For now you can run it directly from the repo.
+Run directly from source:
 
 ```bash
 git clone https://github.com/taygunsavas/git-tangle
@@ -25,7 +25,14 @@ chmod +x bin/git-tangle libexec/tangle/*.sh
 export PATH="$PWD/bin:$PATH"
 ```
 
-To install system‑wide on macOS or Linux:
+macOS (Homebrew tap):
+
+```bash
+brew tap taygunsavas/homebrew-tap
+brew install git-tangle
+```
+
+To install system‑wide from source on macOS or Linux:
 
 ```bash
 # Apple Silicon default prefix
@@ -34,6 +41,16 @@ sudo PREFIX=/opt/homebrew ./scripts/install.sh
 # Common Linux or Intel macOS prefix
 # sudo PREFIX=/usr/local ./scripts/install.sh
 ```
+
+Windows (WinGet):
+
+```powershell
+winget install taygunsavas.git-tangle
+```
+
+Notes for Windows:
+- `git-tangle` depends on Git for Windows and uses Git Bash at runtime.
+- After install, open a new terminal session so command aliases refresh.
 
 ## Quick start
 
@@ -104,7 +121,6 @@ git tangle config set tangle.tagPrefix ""     # keep empty, or e.g. 'v'
 
 ## Roadmap
 
-- Homebrew and Winget packages
 - Optional finish with PR creation for hosted platforms
 - Changelog generation for releases
 - CI templates for common providers

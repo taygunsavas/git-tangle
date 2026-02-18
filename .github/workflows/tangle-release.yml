@@ -11,6 +11,8 @@ jobs:
       contents: write
     env:
       HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+      WINGET_PKGS_TOKEN: ${{ secrets.WINGET_PKGS_TOKEN }}
+      WINGET_PKGS_FORK: ${{ vars.WINGET_PKGS_FORK }}
     steps:
       - uses: actions/checkout@v4
 
@@ -34,6 +36,8 @@ jobs:
           files: |
             dist/git-tangle_${{ steps.v.outputs.tag }}.tar.gz
             dist/git-tangle_${{ steps.v.outputs.tag }}.tar.gz.sha256
+            dist/git-tangle_${{ steps.v.outputs.tag }}_windows_x64.zip
+            dist/git-tangle_${{ steps.v.outputs.tag }}_windows_x64.zip.sha256
 
       - name: Bump Homebrew tap
         if: ${{ env.HOMEBREW_TAP_TOKEN != '' }}
@@ -86,3 +90,43 @@ jobs:
             --body "Update formula to $VERSION" \
             --head "taygunsavas:bump/git-tangle-$VERSION" \
             --base main 
+
+      - name: Bump winget-pkgs
+        if: ${{ env.WINGET_PKGS_TOKEN != '' }}
+        env:
+          GH_TOKEN: ${{ env.WINGET_PKGS_TOKEN }}
+          VERSION: ${{ steps.v.outputs.tag }}
+          SOURCE_REPO: ${{ github.repository }}
+          SOURCE_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+
+          FORK_REPO="${WINGET_PKGS_FORK:-${SOURCE_OWNER}/winget-pkgs}"
+          FORK_OWNER="${FORK_REPO%%/*}"
+          MANIFEST_DIR="manifests/t/taygunsavas/git-tangle/${VERSION}"
+          ZIP_SHA256="$(cut -d ' ' -f1 dist/git-tangle_${VERSION}_windows_x64.zip.sha256)"
+
+          tmpdir="$(mktemp -d)"
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${FORK_REPO}.git" "$tmpdir/winget-pkgs" --depth=1
+
+          "${GITHUB_WORKSPACE}/scripts/generate-winget-manifests.sh" \
+            "$VERSION" \
+            "$SOURCE_REPO" \
+            "$ZIP_SHA256" \
+            "$tmpdir/winget-pkgs"
+
+          cd "$tmpdir/winget-pkgs"
+          git config user.name "tangle-bot"
+          git config user.email "tangle-bot@users.noreply.github.com"
+
+          git checkout -B "bump/git-tangle-$VERSION"
+          git add "$MANIFEST_DIR"
+          git commit -m "Add taygunsavas.git-tangle version $VERSION"
+          git push -u origin "bump/git-tangle-$VERSION"
+
+          gh pr create \
+            --repo microsoft/winget-pkgs \
+            --title "New version: taygunsavas.git-tangle version $VERSION" \
+            --body "Automated update from ${SOURCE_REPO} release ${VERSION}." \
+            --head "${FORK_OWNER}:bump/git-tangle-$VERSION" \
+            --base master
