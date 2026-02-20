@@ -5,14 +5,8 @@ on:
       - '[0-9]*.[0-9]*.[0-9]*'
 
 jobs:
-  build-release:
+  build-artifacts:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    env:
-      HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-      WINGET_PKGS_TOKEN: ${{ secrets.WINGET_PKGS_TOKEN }}
-      WINGET_PKGS_FORK: ${{ vars.WINGET_PKGS_FORK }}
     steps:
       - uses: actions/checkout@v4
 
@@ -34,6 +28,105 @@ jobs:
         env:
           REQUIRE_WINDOWS_SHIM_EXE: "true"
         run: scripts/package.sh "${{ steps.v.outputs.tag }}"
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-dist
+          path: |
+            dist/git-tangle_${{ steps.v.outputs.tag }}.tar.gz
+            dist/git-tangle_${{ steps.v.outputs.tag }}.tar.gz.sha256
+            dist/git-tangle_${{ steps.v.outputs.tag }}_windows_x64.zip
+            dist/git-tangle_${{ steps.v.outputs.tag }}_windows_x64.zip.sha256
+
+  windows-security-gate:
+    needs: build-artifacts
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-dist
+          path: dist
+
+      - name: Derive version from tag
+        id: v
+        shell: pwsh
+        run: |
+          $tag = "${env:GITHUB_REF}".Replace("refs/tags/", "")
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Generate winget manifests
+        shell: pwsh
+        run: |
+          $bash = "$env:ProgramFiles\Git\bin\bash.exe"
+          if (!(Test-Path $bash)) { throw "Git Bash not found on runner." }
+          $sha = ((Get-Content "dist/git-tangle_${{ steps.v.outputs.tag }}_windows_x64.zip.sha256") -split ' ')[0]
+          & $bash -lc "./scripts/generate-winget-manifests.sh ${{ steps.v.outputs.tag }} $env:GITHUB_REPOSITORY $sha ."
+
+      - name: Validate winget manifests
+        shell: pwsh
+        run: |
+          $wg = "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe"
+          if (!(Test-Path $wg)) { throw "winget.exe not found." }
+          $manifest = ".\manifests\t\taygunsavas\git-tangle\${{ steps.v.outputs.tag }}"
+          & $wg validate --manifest $manifest --verbose-logs
+          if ($LASTEXITCODE -ne 0) { throw "winget validate failed with exit code $LASTEXITCODE" }
+
+      - name: Run Windows Defender security scan
+        shell: pwsh
+        run: |
+          $zip = Resolve-Path "dist/git-tangle_${{ steps.v.outputs.tag }}_windows_x64.zip"
+          $scanRoot = Join-Path $env:RUNNER_TEMP "git-tangle-security-${{ steps.v.outputs.tag }}"
+          if (Test-Path $scanRoot) { Remove-Item -Recurse -Force $scanRoot }
+          New-Item -ItemType Directory -Path $scanRoot | Out-Null
+          Expand-Archive -LiteralPath $zip -DestinationPath $scanRoot -Force
+
+          $exe = Join-Path $scanRoot "git-tangle.exe"
+          if (!(Test-Path $exe)) { throw "Expected launcher not found in zip: $exe" }
+
+          $mp = "$env:ProgramFiles\Windows Defender\MpCmdRun.exe"
+          if (!(Test-Path $mp)) {
+            $mp = "$env:ProgramFiles(x86)\Windows Defender\MpCmdRun.exe"
+          }
+          if (!(Test-Path $mp)) { throw "MpCmdRun.exe not found on runner." }
+
+          & $mp -Scan -ScanType 3 -File "$zip"
+          if ($LASTEXITCODE -ne 0) { throw "Defender scan failed for ZIP. Exit code: $LASTEXITCODE" }
+
+          & $mp -Scan -ScanType 3 -File "$exe"
+          if ($LASTEXITCODE -ne 0) { throw "Defender scan failed for launcher EXE. Exit code: $LASTEXITCODE" }
+
+  publish-release:
+    needs:
+      - build-artifacts
+      - windows-security-gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+      WINGET_PKGS_TOKEN: ${{ secrets.WINGET_PKGS_TOKEN }}
+      WINGET_PKGS_FORK: ${{ vars.WINGET_PKGS_FORK }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Make executables
+        run: chmod +x bin/git-tangle libexec/tangle/*.sh scripts/*.sh || true
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-dist
+          path: dist
+
+      - name: Derive version from tag
+        id: v
+        run: |
+          TAG="${GITHUB_REF##*/}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
