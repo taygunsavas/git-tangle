@@ -45,7 +45,7 @@ sudo PREFIX=/opt/homebrew ./scripts/install.sh
 Windows (WinGet):
 
 ```powershell
-winget install --id taygunsavas.git-tangle --exact
+winget install git-tangle
 ```
 
 Notes for Windows:
