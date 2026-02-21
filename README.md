@@ -119,6 +119,16 @@ git tangle config set tangle.tagPrefix ""     # keep empty, or e.g. 'v'
 - It does not replace Git commands and it does not change Git’s data model
 - Release tagging behavior is configurable and can be enabled or disabled per repository
 
+## Release Preflight (Windows)
+
+Before creating a release tag for WinGet, run:
+
+```powershell
+pwsh -File .\scripts\preflight-release.ps1 -Version 1.0.3
+```
+
+This blocks the release if packaging, manifest validation, Defender scan, or launcher smoke tests fail.
+
 ## Roadmap
 
 - Optional finish with PR creation for hosted platforms
