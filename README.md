@@ -45,12 +45,13 @@ sudo PREFIX=/opt/homebrew ./scripts/install.sh
 Windows (WinGet):
 
 ```powershell
-winget install taygunsavas.git-tangle
+winget install --id taygunsavas.git-tangle --exact
 ```
 
 Notes for Windows:
 - `git-tangle` depends on Git for Windows and uses Git Bash at runtime.
 - After install, open a new terminal session so command aliases refresh.
+- Package availability depends on `microsoft/winget-pkgs` PR merge/publication; if not found yet, use the GitHub release ZIP meanwhile.
 
 ## Quick start
 
