@@ -133,10 +133,12 @@ $zipPath = Join-Path $distRoot "git-tangle_${Version}_windows_x64.zip"
 $zipShaPath = Join-Path $distRoot "git-tangle_${Version}_windows_x64.zip.sha256"
 $manifestRoot = Join-Path $distRoot "preflight-manifests"
 $manifestPath = Join-Path $manifestRoot "manifests\t\taygunsavas\git-tangle\$Version"
-$tempRoot = Join-Path $env:TEMP "git-tangle-preflight-$Version"
-$pkgRoot = Join-Path $tempRoot "Packages\taygunsavas.git-tangle__Preflight"
-$linksRoot = Join-Path $tempRoot "Links"
-$linkedExe = Join-Path $linksRoot "git-tangle-preflight.exe"
+$wingetRoot = Join-Path $env:LOCALAPPDATA "Microsoft\WinGet"
+$packagesRoot = Join-Path $wingetRoot "Packages"
+$linksRoot = Join-Path $wingetRoot "Links"
+$preflightSuffix = [Guid]::NewGuid().ToString("N")
+$pkgRoot = Join-Path $packagesRoot "taygunsavas.git-tangle__Preflight$preflightSuffix"
+$linkedExe = Join-Path $linksRoot "git-tangle-preflight-$preflightSuffix.exe"
 
 Push-Location $repoRoot
 try {
@@ -194,9 +196,7 @@ try {
   & $winget.Source validate --manifest $manifestPath --verbose-logs
   Assert-ExitCodeZero -Message "winget validate failed"
 
-  if (Test-Path $tempRoot) {
-    Remove-Item -Recurse -Force $tempRoot
-  }
+  New-Item -ItemType Directory -Path $packagesRoot -Force | Out-Null
   New-Item -ItemType Directory -Path $pkgRoot -Force | Out-Null
   New-Item -ItemType Directory -Path $linksRoot -Force | Out-Null
   Expand-Archive -LiteralPath $zipPath -DestinationPath $pkgRoot -Force
@@ -240,7 +240,12 @@ try {
 finally {
   $env:PATH = $originalPath
   Pop-Location
-  if ((-not $KeepTemp) -and (Test-Path $tempRoot)) {
-    Remove-Item -Recurse -Force $tempRoot
+  if (-not $KeepTemp) {
+    if (Test-Path $linkedExe) {
+      Remove-Item -Force $linkedExe
+    }
+    if (Test-Path $pkgRoot) {
+      Remove-Item -Recurse -Force $pkgRoot
+    }
   }
 }
