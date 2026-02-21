@@ -9,6 +9,19 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Get-ToolchainBinCandidates {
+  $candidates = @(
+    "C:\msys64\mingw64\bin",
+    "C:\msys64\ucrt64\bin"
+  )
+
+  foreach ($candidate in $candidates) {
+    if (Test-Path $candidate) {
+      $candidate
+    }
+  }
+}
+
 function Get-MpCmdRunPath {
   $platformRoot = Join-Path $env:ProgramData "Microsoft\Windows Defender\Platform"
   if (Test-Path $platformRoot) {
@@ -106,6 +119,13 @@ $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $bash = Join-Path $env:ProgramFiles "Git\bin\bash.exe"
 if (-not (Test-Path $bash)) {
   throw "Git Bash not found at $bash"
+}
+
+$toolchainBins = @(Get-ToolchainBinCandidates)
+$originalPath = $env:PATH
+if ($toolchainBins.Count -gt 0) {
+  $env:PATH = (($toolchainBins -join ";") + ";" + $env:PATH)
+  Write-Host "[preflight] Added toolchain paths to PATH: $($toolchainBins -join ', ')"
 }
 
 $distRoot = Join-Path $repoRoot "dist"
@@ -218,6 +238,7 @@ try {
   Write-Host "[preflight] manifests: $manifestPath"
 }
 finally {
+  $env:PATH = $originalPath
   Pop-Location
   if ((-not $KeepTemp) -and (Test-Path $tempRoot)) {
     Remove-Item -Recurse -Force $tempRoot

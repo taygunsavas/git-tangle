@@ -93,7 +93,7 @@ build_windows_exe_shim() {
 
   write_windows_version_rc "$rc_path"
   "$rc_compiler" "$rc_path" -O coff -o "$rc_obj"
-  "$cc" -Os -municode -o "$out" "$SHIM_C" "$rc_obj"
+  "$cc" -Os -municode -o "$out" "$SHIM_C" "$rc_obj" -lversion
 }
 
 if ! build_windows_exe_shim "$WIN_STAGE/git-tangle.exe"; then
