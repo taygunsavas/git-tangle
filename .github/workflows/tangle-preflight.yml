@@ -1,0 +1,58 @@
+name: tangle-preflight
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "SemVer version for preflight build (x.y.z)"
+        required: false
+        default: "0.0.0"
+
+jobs:
+  windows-preflight:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install MSYS2 toolchain
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-binutils
+
+      - name: Resolve preflight version
+        id: v
+        shell: pwsh
+        run: |
+          $version = "${{ github.event.inputs.version }}"
+          if ([string]::IsNullOrWhiteSpace($version)) { $version = "0.0.0" }
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+            throw "Invalid version '$version'. Expected x.y.z"
+          }
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Run release preflight
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File .\scripts\preflight-release.ps1 `
+            -Version "${{ steps.v.outputs.version }}" `
+            -SourceRepo "${{ github.repository }}"
+
+      - name: Upload preflight artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preflight-dist-${{ steps.v.outputs.version }}
+          if-no-files-found: ignore
+          path: |
+            dist/git-tangle_${{ steps.v.outputs.version }}.tar.gz
+            dist/git-tangle_${{ steps.v.outputs.version }}.tar.gz.sha256
+            dist/git-tangle_${{ steps.v.outputs.version }}_windows_x64.zip
+            dist/git-tangle_${{ steps.v.outputs.version }}_windows_x64.zip.sha256
+            dist/preflight-manifests/manifests/t/taygunsavas/git-tangle/${{ steps.v.outputs.version }}
