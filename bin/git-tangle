@@ -32,6 +32,25 @@ SELF_PATH="$(resolve_self)"
 ROOT_DIR="$(cd "$(dirname "$SELF_PATH")/.." && pwd)"
 LIBEXEC_DIR="$ROOT_DIR/libexec/tangle"
 
+tangle_version() {
+  if [[ -n "${GIT_TANGLE_VERSION:-}" ]]; then
+    echo "$GIT_TANGLE_VERSION"
+    return
+  fi
+
+  if [[ -f "$ROOT_DIR/VERSION" ]]; then
+    tr -d '\r\n' <"$ROOT_DIR/VERSION"
+    return
+  fi
+
+  if git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git -C "$ROOT_DIR" describe --tags --always --dirty 2>/dev/null || echo "dev"
+    return
+  fi
+
+  echo "dev"
+}
+
 usage() {
   cat <<'EOF'
 Git Tangle 🧶 — Untangle your workflow.
@@ -86,6 +105,9 @@ cmd="${1:-}"
 if [[ -z "${cmd}" ]]; then usage; exit 1; fi
 
 case "$cmd" in
+  -v|--version|version)
+    echo "git-tangle $(tangle_version)"
+    ;;
   init)
     ensure_repo
     def_guess="$(detect_default_branch)"

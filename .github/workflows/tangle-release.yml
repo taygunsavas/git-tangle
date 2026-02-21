@@ -99,6 +99,30 @@ jobs:
           & $mp -Scan -ScanType 3 -File "$exe"
           if ($LASTEXITCODE -ne 0) { throw "Defender scan failed for launcher EXE. Exit code: $LASTEXITCODE" }
 
+      - name: Smoke test WinGet Links launcher
+        shell: pwsh
+        run: |
+          $zip = Resolve-Path "dist/git-tangle_${{ steps.v.outputs.tag }}_windows_x64.zip"
+          $wingetRoot = Join-Path $env:LOCALAPPDATA "Microsoft\WinGet"
+          $packagesRoot = Join-Path $wingetRoot "Packages"
+          $linksRoot = Join-Path $wingetRoot "Links"
+          $pkgRoot = Join-Path $packagesRoot "taygunsavas.git-tangle__DefaultSource"
+
+          if (Test-Path $pkgRoot) { Remove-Item -Recurse -Force $pkgRoot }
+          New-Item -ItemType Directory -Path $pkgRoot -Force | Out-Null
+          New-Item -ItemType Directory -Path $linksRoot -Force | Out-Null
+          Expand-Archive -LiteralPath $zip -DestinationPath $pkgRoot -Force
+
+          $linkedExe = Join-Path $linksRoot "git-tangle-ci.exe"
+          if (Test-Path $linkedExe) { Remove-Item -Force $linkedExe }
+          New-Item -ItemType HardLink -Path $linkedExe -Target (Join-Path $pkgRoot "git-tangle.exe") | Out-Null
+
+          & $linkedExe --version
+          if ($LASTEXITCODE -ne 0) { throw "WinGet Links launcher failed for --version with exit code $LASTEXITCODE" }
+
+          & $linkedExe --help
+          if ($LASTEXITCODE -ne 0) { throw "WinGet Links launcher failed for --help with exit code $LASTEXITCODE" }
+
   publish-release:
     needs:
       - build-artifacts
